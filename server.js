@@ -41,28 +41,50 @@ db.once("open", function() {
   });
 
 
+  // HTTP get request for end-point 'scrape'
   app.get("/scrape", function(req, res) {
-  request("www.nytimes.com", function(error, response, html) {
-    var $ = cheerio.load(html);
-    $("body #shell #mini-navigation ul").each(function(i, element) {
-      var result = {};
+    
+    // Asynch request to the newspaper URL
+    request("https://www.washingtonpost.com/", function(error, response, html) {
+      
+      // Using cheerio to create a virtual DOM and JQuey like selection of elements
+      // inside that DOM
+      var $ = cheerio.load(html);
+     
+      // This array will hold headlines captured from newspaper html
+      var headlines = [];
 
-      result.title = $(this).children("a").text();
-      result.link = $(this).children("a").attr("href");
+      // Use cheerio to select HTML elements that are the headlines
+      $("#main-content .headline").each( function(i, element) {
 
-      var entry = new Article(result);
-      entry.save(function(err, doc) {
-        if (err) {
-          console.log(err);
-        }
-        else {
-          console.log(doc);
-        }
+        headlines.push($(this).text());
+
+      });
+
+      // Send the headlines ( which is an array of strings ) back to the web client
+      res.send(headlines);
+
+      // Save the headlines inside of our mongo database using mongoose schema "Article"
+      headlines.forEach( function (headline) {
+  
+        // Create a new mongoose "Article" schema oject and save the article in the mongo database
+        var newArticle = new Article({ 
+          title: headline,
+          link: "none"
+        });
+       
+        // Use mongoose method of the Article schema object to save each headline in the mongo database
+        newArticle.save(function(err, doc) {
+          if (err) {
+            console.log(err);
+          }
+          else {
+            console.log(doc);
+          }
+        });
+      
       });
     });
-  });
-  // Tell the browser that we finished scraping the text
- // res.send("Scrape Complete");
 });
 
 
@@ -74,7 +96,7 @@ app.get("/articles", function(req, res) {
           res.send('error present')
         }else
         res.send(articles);
-        res.json(articles);
+        //res.json(articles);
         console.log(articles);
   });
 });
